@@ -9,7 +9,7 @@
 <div align="center">
 
 [![Tusk Drift Docs](https://img.shields.io/badge/Tusk%20Drift-Docs-6C63FF?style=flat&logo=readthedocs&logoColor=white)](https://docs.usetusk.ai/api-tests/overview)
-[![GitHub Release](https://img.shields.io/github/v/release/Use-Tusk/drift-action)](https://github.com/Use-Tusk/drift-action/releases)
+[![GitHub Tag](https://img.shields.io/github/v/tag/Use-Tusk/drift-action?sort=semver&label=latest+version)](https://github.com/Use-Tusk/drift-action/tags)
 [![CI](https://github.com/Use-Tusk/drift-action/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Use-Tusk/drift-action/actions/workflows/ci.yml?query=branch%3Amain)
 [![CodeQL](https://github.com/Use-Tusk/drift-action/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/Use-Tusk/drift-action/actions/workflows/codeql-analysis.yml?query=branch%3Amain)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Use-Tusk/drift-action/blob/main/LICENSE)
