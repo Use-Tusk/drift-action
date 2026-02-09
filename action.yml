@@ -1,23 +1,53 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: Tusk Drift
+description: Install and run Tusk Drift in GitHub Actions
+author: Tusk
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: activity
+  color: purple
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
-    required: true
-    default: '1000'
+  working-directory:
+    description: Working directory where Tusk command runs
+    required: false
+    default: .
+  install-script-url:
+    description: URL for the Tusk CLI install script
+    required: false
+    default: https://cli.usetusk.ai/install.sh
+  cli-version:
+    description: Optional CLI version tag to install, for example v1.2.3
+    required: false
+  cache:
+    description: Enable restore and save for Tusk cache directory
+    required: false
+    default: 'true'
+  cache-path:
+    description: Cache directory path for Tusk data
+    required: false
+    default: ~/.cache/tusk
+  cache-key:
+    description: Cache key used for restore and save
+    required: false
+  cache-restore-keys:
+    description: Newline-delimited restore keys used for partial cache matches
+    required: false
+  run-command:
+    description: Command used to execute Tusk Drift trace tests
+    required: false
+    default: tusk run -c -p --ci --validate-suite-if-default-branch
+  api-key:
+    description: Optional API key to expose as TUSK_API_KEY
+    required: false
 
 # Define your outputs here.
 outputs:
-  time:
-    description: Your output description here
+  tusk-version:
+    description: Tusk CLI version reported by tusk --version
+  cache-hit:
+    description: Whether the cache key was restored exactly
 
 runs:
   using: node24

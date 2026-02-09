@@ -57,8 +57,9 @@ jobs:
         id: test-action
         uses: ./
         with:
-          milliseconds: 2000
+          cache: false
+          run-command: echo "smoke test"
 
       - name: Print Output
         id: output
-        run: echo "${{ steps.test-action.outputs.time }}"
+        run: echo "${{ steps.test-action.outputs.cache-hit }}"

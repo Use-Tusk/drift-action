@@ -1,17 +1,17 @@
 {
-  "name": "typescript-action",
-  "description": "GitHub Actions TypeScript template",
-  "version": "0.0.0",
-  "author": "",
+  "name": "drift-action",
+  "description": "GitHub Action for running Tusk Drift",
+  "version": "1.0.0",
+  "author": "Tusk",
   "type": "module",
   "private": true,
-  "homepage": "https://github.com/actions/typescript-action",
+  "homepage": "https://usetusk.ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
+    "url": "git+https://github.com/Use-Tusk/drift-action.git"
   },
   "bugs": {
-    "url": "https://github.com/actions/typescript-action/issues"
+    "url": "https://github.com/Use-Tusk/drift-action/issues"
   },
   "keywords": [
     "actions"
@@ -37,13 +37,16 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.11.1"
+    "@actions/cache": "^6.0.0",
+    "@actions/core": "^1.11.1",
+    "@actions/exec": "^3.0.0"
   },
   "devDependencies": {
     "@eslint/compat": "^1.4.0",
     "@github/local-action": "^6.0.2",
     "@jest/globals": "^30.2.0",
     "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/jest": "^30.0.0",

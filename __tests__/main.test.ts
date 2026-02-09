@@ -1,62 +1,97 @@
-/**
- * Unit tests for the action's main functionality, src/main.ts
- *
- * To mock dependencies in ESM, you can create fixtures that export mock
- * functions and objects. For example, the core module is mocked in this test,
- * so that the actual '@actions/core' module is not imported.
- */
 import { jest } from '@jest/globals'
 import * as core from '../__fixtures__/core.js'
-import { wait } from '../__fixtures__/wait.js'
+import * as cache from '../__fixtures__/cache.js'
+import * as exec from '../__fixtures__/exec.js'
 
 // Mocks should be declared before the module being tested is imported.
 jest.unstable_mockModule('@actions/core', () => core)
-jest.unstable_mockModule('../src/wait.js', () => ({ wait }))
-
-// The module being tested should be imported dynamically. This ensures that the
-// mocks are used in place of any actual dependencies.
+jest.unstable_mockModule('@actions/cache', () => cache)
+jest.unstable_mockModule('@actions/exec', () => exec)
 const { run } = await import('../src/main.js')
 
 describe('main.ts', () => {
   beforeEach(() => {
-    // Set the action's inputs as return values from core.getInput().
-    core.getInput.mockImplementation(() => '500')
+    const inputs: Record<string, string> = {
+      'working-directory': './backend',
+      'install-script-url': 'https://cli.usetusk.ai/install.sh',
+      'cli-version': '',
+      cache: 'true',
+      'cache-path': '~/.cache/tusk',
+      'cache-key': 'linux-tusk-drift-config-hash',
+      'run-command': 'tusk run -c -p --ci --validate-suite-if-default-branch',
+      'api-key': 'test-api-key'
+    }
 
-    // Mock the wait function so that it does not actually wait.
-    wait.mockImplementation(() => Promise.resolve('done!'))
+    core.getInput.mockImplementation((name: string) => inputs[name] ?? '')
+    core.getMultilineInput.mockImplementation((name: string) => {
+      if (name === 'cache-restore-keys') {
+        return ['linux-tusk-drift-']
+      }
+      return []
+    })
+
+    cache.restoreCache.mockResolvedValue(undefined)
+    cache.saveCache.mockResolvedValue(1)
+    exec.exec.mockResolvedValue(0)
   })
 
   afterEach(() => {
     jest.resetAllMocks()
   })
 
-  it('Sets the time output', async () => {
+  it('restores cache and runs the configured command', async () => {
     await run()
 
-    // Verify the time output was set.
-    expect(core.setOutput).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      // Simple regex to match a time string in the format HH:MM:SS.
-      expect.stringMatching(/^\d{2}:\d{2}:\d{2}/)
+    expect(cache.restoreCache).toHaveBeenCalledWith(
+      [expect.stringMatching(/\.cache\/tusk$/)],
+      'linux-tusk-drift-config-hash',
+      ['linux-tusk-drift-']
     )
+    expect(exec.exec).toHaveBeenNthCalledWith(
+      1,
+      'bash',
+      [
+        '-eo',
+        'pipefail',
+        '-c',
+        "curl -fsSL 'https://cli.usetusk.ai/install.sh' | sh"
+      ],
+      expect.objectContaining({
+        cwd: './backend'
+      })
+    )
+    expect(exec.exec).toHaveBeenNthCalledWith(
+      2,
+      'tusk',
+      ['--version'],
+      expect.objectContaining({ silent: true })
+    )
+    expect(exec.exec).toHaveBeenNthCalledWith(
+      3,
+      'bash',
+      [
+        '-eo',
+        'pipefail',
+        '-c',
+        'tusk run -c -p --ci --validate-suite-if-default-branch'
+      ],
+      expect.objectContaining({
+        cwd: './backend',
+        env: expect.objectContaining({ TUSK_API_KEY: 'test-api-key' })
+      })
+    )
+    expect(core.setOutput).toHaveBeenCalledWith('cache-hit', 'false')
   })
 
-  it('Sets a failed status', async () => {
-    // Clear the getInput mock and return an invalid value.
-    core.getInput.mockClear().mockReturnValueOnce('this is not a number')
-
-    // Clear the wait mock and return a rejected promise.
-    wait
-      .mockClear()
-      .mockRejectedValueOnce(new Error('milliseconds is not a number'))
+  it('marks action as failed for invalid cache input', async () => {
+    core.getInput.mockImplementation((name: string) =>
+      name === 'cache' ? 'maybe' : ''
+    )
 
     await run()
 
-    // Verify that the action was marked as failed.
-    expect(core.setFailed).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds is not a number'
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Input "cache" must be a boolean value (true/false), received "maybe"'
     )
   })
 })
