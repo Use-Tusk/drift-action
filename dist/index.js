@@ -128381,6 +128381,8 @@ function saveCacheV2(paths_1, key_1, options_1) {
 const DEFAULT_INSTALL_SCRIPT_URL = 'https://cli.usetusk.ai/install.sh';
 const DEFAULT_RUN_COMMAND = 'tusk run -c -p --ci --validate-suite-if-default-branch';
 const DEFAULT_CACHE_PATH = '~/.cache/tusk';
+const CLI_SOURCE_REPOSITORY = 'Use-Tusk/tusk-drift-cli';
+const DEFAULT_CLI_SOURCE_REF = 'main';
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'y', 'on']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'n', 'off']);
 function parseBooleanInput(name, defaultValue) {
@@ -128418,6 +128420,13 @@ function expandHomeDir(pathValue) {
 function shellQuote(value) {
     return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
+function getCliInstallMode() {
+    const raw = getStringInput('cli-source', 'release').toLowerCase();
+    if (raw === 'release' || raw === 'source') {
+        return raw;
+    }
+    throw new Error(`Input "cli-source" must be either "release" or "source", received "${raw}"`);
+}
 async function readTuskVersion() {
     let output = '';
     await exec('tusk', ['--version'], {
@@ -128442,6 +128451,29 @@ function buildExecEnvironment(apiKey) {
     }
     return env;
 }
+async function installFromReleaseScript(workingDirectory, installScriptUrl, cliVersion) {
+    const installCommand = cliVersion === ''
+        ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
+        : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`;
+    await exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+        cwd: workingDirectory
+    });
+}
+async function installFromSource(workingDirectory, ref) {
+    await exec('go', ['version'], { cwd: workingDirectory });
+    const repoUrl = `https://github.com/${CLI_SOURCE_REPOSITORY}.git`;
+    const installCommand = `tmp_dir="$(mktemp -d)" && ` +
+        `trap 'rm -rf "$tmp_dir"' EXIT && ` +
+        `git clone --depth 1 --branch ${shellQuote(ref)} ${shellQuote(repoUrl)} "$tmp_dir/repo" && ` +
+        `cd "$tmp_dir/repo" && ` +
+        `go build -o tusk . && ` +
+        `install_dir="/usr/local/bin" && ` +
+        `if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && ` +
+        `mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`;
+    await exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+        cwd: workingDirectory
+    });
+}
 /**
  * The main function for the action.
  *
@@ -128450,9 +128482,11 @@ function buildExecEnvironment(apiKey) {
 async function run() {
     try {
         const workingDirectory = getStringInput('working-directory', '.');
+        const cliSource = getCliInstallMode();
         const cacheEnabled = parseBooleanInput('cache', true);
         const installScriptUrl = getStringInput('install-script-url', DEFAULT_INSTALL_SCRIPT_URL);
         const cliVersion = coreExports.getInput('cli-version').trim();
+        const cliSourceRef = getStringInput('cli-source-ref', DEFAULT_CLI_SOURCE_REF);
         const runCommand = getStringInput('run-command', DEFAULT_RUN_COMMAND);
         const apiKey = coreExports.getInput('api-key').trim();
         const cachePath = expandHomeDir(getStringInput('cache-path', DEFAULT_CACHE_PATH));
@@ -128474,12 +128508,12 @@ async function run() {
         coreExports.setOutput('cache-hit', restoredCacheKey === cacheKey ? 'true' : 'false');
         coreExports.addPath(join(homedir(), '.local', 'bin'));
         coreExports.addPath('/usr/local/bin');
-        const installCommand = cliVersion === ''
-            ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
-            : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`;
-        await exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
-            cwd: workingDirectory
-        });
+        if (cliSource === 'release') {
+            await installFromReleaseScript(workingDirectory, installScriptUrl, cliVersion);
+        }
+        else {
+            await installFromSource(workingDirectory, cliSourceRef);
+        }
         try {
             const version = await readTuskVersion();
             if (version !== '') {

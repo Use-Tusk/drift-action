@@ -14,7 +14,9 @@ describe('main.ts', () => {
     const inputs: Record<string, string> = {
       'working-directory': './backend',
       'install-script-url': 'https://cli.usetusk.ai/install.sh',
+      'cli-source': 'release',
       'cli-version': '',
+      'cli-source-ref': 'main',
       cache: 'true',
       'cache-path': '~/.cache/tusk',
       'cache-key': 'linux-tusk-drift-config-hash',
@@ -92,6 +94,38 @@ describe('main.ts', () => {
 
     expect(core.setFailed).toHaveBeenCalledWith(
       'Input "cache" must be a boolean value (true/false), received "maybe"'
+    )
+  })
+
+  it('builds CLI from source when requested', async () => {
+    core.getInput.mockImplementation((name: string) => {
+      if (name === 'cli-source') {
+        return 'source'
+      }
+      if (name === 'cache') {
+        return 'false'
+      }
+      return ''
+    })
+
+    await run()
+
+    expect(exec.exec).toHaveBeenNthCalledWith(
+      1,
+      'go',
+      ['version'],
+      expect.objectContaining({ cwd: '.' })
+    )
+    expect(exec.exec).toHaveBeenNthCalledWith(
+      2,
+      'bash',
+      [
+        '-eo',
+        'pipefail',
+        '-c',
+        `tmp_dir="$(mktemp -d)" && trap 'rm -rf "$tmp_dir"' EXIT && git clone --depth 1 --branch 'main' 'https://github.com/Use-Tusk/tusk-drift-cli.git' "$tmp_dir/repo" && cd "$tmp_dir/repo" && go build -o tusk . && install_dir="/usr/local/bin" && if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`
+      ],
+      expect.objectContaining({ cwd: '.' })
     )
   })
 })

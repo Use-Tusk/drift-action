@@ -17,9 +17,17 @@ inputs:
     description: URL for the Tusk CLI install script
     required: false
     default: https://cli.usetusk.ai/install.sh
+  cli-source:
+    description: Install source for Tusk CLI (release or source)
+    required: false
+    default: release
   cli-version:
     description: Optional CLI version tag to install, for example v1.2.3
     required: false
+  cli-source-ref:
+    description: Git ref to build from when cli-source is source
+    required: false
+    default: main
   cache:
     description: Enable restore and save for Tusk cache directory
     required: false

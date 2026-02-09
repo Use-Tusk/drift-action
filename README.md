@@ -26,6 +26,8 @@ or [docs](https://docs.usetusk.ai/api-tests/overview).
 
 - Installs the [Tusk CLI](https://github.com/Use-Tusk/tusk-drift-cli) (`tusk`)
   with `https://cli.usetusk.ai/install.sh`.
+- Can optionally build the CLI from a GitHub repo/ref (for unreleased
+  dogfooding).
 - Restores and saves Tusk cache data (optional).
 - Runs a configurable Tusk command (defaults to CI cloud validation mode).
 - Optionally injects `TUSK_API_KEY` from an input.
@@ -82,16 +84,28 @@ jobs:
       <td>Directory where install and run commands execute.</td>
     </tr>
     <tr>
+      <td><code>cli-source</code></td>
+      <td>No</td>
+      <td><code>release</code></td>
+      <td>Install source mode: <code>release</code> or <code>source</code>.</td>
+    </tr>
+    <tr>
       <td><code>install-script-url</code></td>
       <td>No</td>
       <td><code>https://cli.usetusk.ai/install.sh</code></td>
-      <td>Install script URL for Tusk CLI.</td>
+      <td>Install script URL for Tusk CLI. Only used if <code>cli-source</code> is <code>release</code>.</td>
     </tr>
     <tr>
       <td><code>cli-version</code></td>
       <td>No</td>
       <td>Latest available CLI version</td>
-      <td>Specific CLI version to install (for example <code>v1.2.3</code>).</td>
+      <td>Specific CLI version to install (for example <code>v1.2.3</code>). Only used if <code>cli-source</code> is <code>release</code>.</td>
+    </tr>
+    <tr>
+      <td><code>cli-source-ref</code></td>
+      <td>No</td>
+      <td><code>main</code></td>
+      <td>Git ref to build from when <code>cli-source</code> is <code>source</code>.</td>
     </tr>
     <tr>
       <td><code>cache</code></td>

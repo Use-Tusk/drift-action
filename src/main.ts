@@ -9,6 +9,8 @@ const DEFAULT_INSTALL_SCRIPT_URL = 'https://cli.usetusk.ai/install.sh'
 const DEFAULT_RUN_COMMAND =
   'tusk run -c -p --ci --validate-suite-if-default-branch'
 const DEFAULT_CACHE_PATH = '~/.cache/tusk'
+const CLI_SOURCE_REPOSITORY = 'Use-Tusk/tusk-drift-cli'
+const DEFAULT_CLI_SOURCE_REF = 'main'
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'y', 'on'])
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'n', 'off'])
 
@@ -57,6 +59,17 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`
 }
 
+function getCliInstallMode(): 'release' | 'source' {
+  const raw = getStringInput('cli-source', 'release').toLowerCase()
+  if (raw === 'release' || raw === 'source') {
+    return raw
+  }
+
+  throw new Error(
+    `Input "cli-source" must be either "release" or "source", received "${raw}"`
+  )
+}
+
 async function readTuskVersion(): Promise<string> {
   let output = ''
   await exec.exec('tusk', ['--version'], {
@@ -86,6 +99,43 @@ function buildExecEnvironment(apiKey: string): { [key: string]: string } {
   return env
 }
 
+async function installFromReleaseScript(
+  workingDirectory: string,
+  installScriptUrl: string,
+  cliVersion: string
+): Promise<void> {
+  const installCommand =
+    cliVersion === ''
+      ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
+      : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`
+
+  await exec.exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+    cwd: workingDirectory
+  })
+}
+
+async function installFromSource(
+  workingDirectory: string,
+  ref: string
+): Promise<void> {
+  await exec.exec('go', ['version'], { cwd: workingDirectory })
+
+  const repoUrl = `https://github.com/${CLI_SOURCE_REPOSITORY}.git`
+  const installCommand =
+    `tmp_dir="$(mktemp -d)" && ` +
+    `trap 'rm -rf "$tmp_dir"' EXIT && ` +
+    `git clone --depth 1 --branch ${shellQuote(ref)} ${shellQuote(repoUrl)} "$tmp_dir/repo" && ` +
+    `cd "$tmp_dir/repo" && ` +
+    `go build -o tusk . && ` +
+    `install_dir="/usr/local/bin" && ` +
+    `if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && ` +
+    `mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`
+
+  await exec.exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+    cwd: workingDirectory
+  })
+}
+
 /**
  * The main function for the action.
  *
@@ -94,12 +144,17 @@ function buildExecEnvironment(apiKey: string): { [key: string]: string } {
 export async function run(): Promise<void> {
   try {
     const workingDirectory = getStringInput('working-directory', '.')
+    const cliSource = getCliInstallMode()
     const cacheEnabled = parseBooleanInput('cache', true)
     const installScriptUrl = getStringInput(
       'install-script-url',
       DEFAULT_INSTALL_SCRIPT_URL
     )
     const cliVersion = core.getInput('cli-version').trim()
+    const cliSourceRef = getStringInput(
+      'cli-source-ref',
+      DEFAULT_CLI_SOURCE_REF
+    )
     const runCommand = getStringInput('run-command', DEFAULT_RUN_COMMAND)
     const apiKey = core.getInput('api-key').trim()
     const cachePath = expandHomeDir(
@@ -133,14 +188,15 @@ export async function run(): Promise<void> {
     core.addPath(join(homedir(), '.local', 'bin'))
     core.addPath('/usr/local/bin')
 
-    const installCommand =
-      cliVersion === ''
-        ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
-        : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`
-
-    await exec.exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
-      cwd: workingDirectory
-    })
+    if (cliSource === 'release') {
+      await installFromReleaseScript(
+        workingDirectory,
+        installScriptUrl,
+        cliVersion
+      )
+    } else {
+      await installFromSource(workingDirectory, cliSourceRef)
+    }
 
     try {
       const version = await readTuskVersion()
