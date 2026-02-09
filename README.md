@@ -12,7 +12,6 @@
 [![GitHub Tag](https://img.shields.io/github/v/tag/Use-Tusk/drift-action?sort=semver&label=latest+version)](https://github.com/Use-Tusk/drift-action/tags)
 [![CI](https://github.com/Use-Tusk/drift-action/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Use-Tusk/drift-action/actions/workflows/ci.yml?query=branch%3Amain)
 [![CodeQL](https://github.com/Use-Tusk/drift-action/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/Use-Tusk/drift-action/actions/workflows/codeql-analysis.yml?query=branch%3Amain)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Use-Tusk/drift-action/blob/main/LICENSE)
 [![X URL](https://img.shields.io/twitter/url?url=https%3A%2F%2Fx.com%2Fusetusk&style=flat&logo=x&label=Tusk&color=BF40BF)](https://x.com/usetusk)
 [![Slack URL](https://img.shields.io/badge/slack-badge?style=flat&logo=slack&label=Tusk&color=BF40BF)](https://join.slack.com/t/tusk-community/shared_invite/zt-3fve1s7ie-NAAUn~UpHsf1m_2tdoGjsQ)
 
