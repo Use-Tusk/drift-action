@@ -2,12 +2,10 @@ name: Tusk Drift
 description: Install and run Tusk Drift in GitHub Actions
 author: Tusk
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
   icon: activity
   color: purple
 
-# Define your inputs here.
 inputs:
   working-directory:
     description: Working directory where Tusk command runs
@@ -50,7 +48,6 @@ inputs:
     description: Optional API key to expose as TUSK_API_KEY
     required: false
 
-# Define your outputs here.
 outputs:
   tusk-version:
     description: Tusk CLI version reported by tusk --version
