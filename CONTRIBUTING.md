@@ -64,6 +64,25 @@ npm run local-action
 
 Use `.env` for local-action input/environment values.
 
+## CLI coupling
+
+This action is intentionally coupled to `Use-Tusk/tusk-drift-cli`. When the CLI
+changes, verify these contracts still hold:
+
+- Release installer contract: `install.sh` still supports both
+  `curl ... | sh` and `curl ... | sh -s -- <version>`.
+- Source build contract: `cli-source: source` can still clone
+  `Use-Tusk/tusk-drift-cli` and build from repo root with `go build -o tusk .`.
+- Binary contract: resulting binary name remains `tusk` and
+  `tusk --version` still works.
+- Run command contract: default command in this action remains valid with
+  current CLI flags (`tusk run -c -p --ci --validate-suite-if-default-branch`).
+- Auth/cache contract: CLI still reads `TUSK_API_KEY` and default cache data
+  remains under `~/.cache/tusk`.
+
+If any of these contracts change in the CLI, update `src/main.ts`,
+`action.yml`, `README.md`, and tests together in the same PR.
+
 ## Release flow
 
 This repo includes a helper at `scripts/release.sh` for creating and pushing
