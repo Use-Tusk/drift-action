@@ -171,6 +171,13 @@ jobs:
 
 - The action adds `~/.local/bin` and `/usr/local/bin` to `PATH`.
 - If your job should skip cache handling, set `cache: false`.
+- If you are installing the CLI from source (`cli-source: source`), it will use whatever Go version is already on the runner's `PATH` at runtime. For deterministic builds (or if you hit Go-version issues), pin Go before running this action:
+
+  ```yaml
+  - uses: actions/setup-go@v5
+    with:
+      go-version: "1.25"  # or the current Go version required by tusk-drift-cli
+  ```  
 
 ## Contact
 
