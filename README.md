@@ -171,7 +171,9 @@ jobs:
 
 - The action adds `~/.local/bin` and `/usr/local/bin` to `PATH`.
 - If your job should skip cache handling, set `cache: false`.
-- If you run trace tests in Tusk Drift Cloud, provide `api-key` (or set `TUSK_API_KEY` in the job environment). Without it, authenticated cloud API calls will fail.
+- If you run trace tests in Tusk Drift Cloud, provide `api-key` (or set
+  `TUSK_API_KEY` in the job environment). Without it, authenticated cloud API
+  calls will fail.
 - If you are installing the CLI from source (`cli-source: source`), it will use
   whatever Go version is already on the runner's `PATH` at runtime. For
   deterministic builds (or if you hit Go-version issues), pin Go before running
