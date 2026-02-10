@@ -181,4 +181,4 @@ jobs:
 
 ## Contact
 
-Need help? Raise an issue for drop us an email at <support@usetusk.ai>.
+Need help? Raise an issue or drop us an email at <support@usetusk.ai>.
