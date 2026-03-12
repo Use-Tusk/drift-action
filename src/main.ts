@@ -104,36 +104,46 @@ async function installFromReleaseScript(
   installScriptUrl: string,
   cliVersion: string
 ): Promise<void> {
-  const installCommand =
-    cliVersion === ''
-      ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
-      : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`
+  core.startGroup('Install Tusk CLI (release)')
+  try {
+    const installCommand =
+      cliVersion === ''
+        ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
+        : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`
 
-  await exec.exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
-    cwd: workingDirectory
-  })
+    await exec.exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+      cwd: workingDirectory
+    })
+  } finally {
+    core.endGroup()
+  }
 }
 
 async function installFromSource(
   workingDirectory: string,
   ref: string
 ): Promise<void> {
-  await exec.exec('go', ['version'], { cwd: workingDirectory })
+  core.startGroup('Install Tusk CLI (source)')
+  try {
+    await exec.exec('go', ['version'], { cwd: workingDirectory })
 
-  const repoUrl = `https://github.com/${CLI_SOURCE_REPOSITORY}.git`
-  const installCommand =
-    `tmp_dir="$(mktemp -d)" && ` +
-    `trap 'rm -rf "$tmp_dir"' EXIT && ` +
-    `git clone --depth 1 --branch ${shellQuote(ref)} ${shellQuote(repoUrl)} "$tmp_dir/repo" && ` +
-    `cd "$tmp_dir/repo" && ` +
-    `go build -o tusk . && ` +
-    `install_dir="/usr/local/bin" && ` +
-    `if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && ` +
-    `mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`
+    const repoUrl = `https://github.com/${CLI_SOURCE_REPOSITORY}.git`
+    const installCommand =
+      `tmp_dir="$(mktemp -d)" && ` +
+      `trap 'rm -rf "$tmp_dir"' EXIT && ` +
+      `git clone --depth 1 --branch ${shellQuote(ref)} ${shellQuote(repoUrl)} "$tmp_dir/repo" && ` +
+      `cd "$tmp_dir/repo" && ` +
+      `go build -o tusk . && ` +
+      `install_dir="/usr/local/bin" && ` +
+      `if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && ` +
+      `mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`
 
-  await exec.exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
-    cwd: workingDirectory
-  })
+    await exec.exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+      cwd: workingDirectory
+    })
+  } finally {
+    core.endGroup()
+  }
 }
 
 async function installSandboxDeps(): Promise<void> {
@@ -156,7 +166,7 @@ async function installSandboxDeps(): Promise<void> {
     return
   }
 
-  core.info(`Installing sandbox dependencies: ${missing.join(', ')}`)
+  core.startGroup(`Installing sandbox dependencies: ${missing.join(', ')}`)
   try {
     await exec.exec('sudo', ['apt-get', 'install', '-y', ...missing])
   } catch (error) {
@@ -165,6 +175,8 @@ async function installSandboxDeps(): Promise<void> {
         `Failed to install sandbox dependencies: ${error.message}. Sandboxing may be unavailable.`
       )
     }
+  } finally {
+    core.endGroup()
   }
 }
 
@@ -222,7 +234,11 @@ export async function run(): Promise<void> {
 
     const cliInstall =
       cliSource === 'release'
-        ? installFromReleaseScript(workingDirectory, installScriptUrl, cliVersion)
+        ? installFromReleaseScript(
+            workingDirectory,
+            installScriptUrl,
+            cliVersion
+          )
         : installFromSource(workingDirectory, cliSourceRef)
 
     await Promise.all([cliInstall, installSandboxDeps()])

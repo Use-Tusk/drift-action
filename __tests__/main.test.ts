@@ -9,6 +9,8 @@ jest.unstable_mockModule('@actions/cache', () => cache)
 jest.unstable_mockModule('@actions/exec', () => exec)
 const { run } = await import('../src/main.js')
 
+const originalPlatform = process.platform
+
 describe('main.ts', () => {
   beforeEach(() => {
     const inputs: Record<string, string> = {
@@ -39,6 +41,7 @@ describe('main.ts', () => {
 
   afterEach(() => {
     jest.resetAllMocks()
+    Object.defineProperty(process, 'platform', { value: originalPlatform })
   })
 
   it('restores cache and runs the configured command', async () => {
@@ -49,8 +52,7 @@ describe('main.ts', () => {
       'linux-tusk-drift-config-hash',
       ['linux-tusk-drift-']
     )
-    expect(exec.exec).toHaveBeenNthCalledWith(
-      1,
+    expect(exec.exec).toHaveBeenCalledWith(
       'bash',
       [
         '-eo',
@@ -62,14 +64,12 @@ describe('main.ts', () => {
         cwd: './backend'
       })
     )
-    expect(exec.exec).toHaveBeenNthCalledWith(
-      2,
+    expect(exec.exec).toHaveBeenCalledWith(
       'tusk',
       ['--version'],
       expect.objectContaining({ silent: true })
     )
-    expect(exec.exec).toHaveBeenNthCalledWith(
-      3,
+    expect(exec.exec).toHaveBeenCalledWith(
       'bash',
       [
         '-eo',
@@ -110,14 +110,12 @@ describe('main.ts', () => {
 
     await run()
 
-    expect(exec.exec).toHaveBeenNthCalledWith(
-      1,
+    expect(exec.exec).toHaveBeenCalledWith(
       'go',
       ['version'],
       expect.objectContaining({ cwd: '.' })
     )
-    expect(exec.exec).toHaveBeenNthCalledWith(
-      2,
+    expect(exec.exec).toHaveBeenCalledWith(
       'bash',
       [
         '-eo',
@@ -126,6 +124,94 @@ describe('main.ts', () => {
         `tmp_dir="$(mktemp -d)" && trap 'rm -rf "$tmp_dir"' EXIT && git clone --depth 1 --branch 'main' 'https://github.com/Use-Tusk/tusk-drift-cli.git' "$tmp_dir/repo" && cd "$tmp_dir/repo" && go build -o tusk . && install_dir="/usr/local/bin" && if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`
       ],
       expect.objectContaining({ cwd: '.' })
+    )
+  })
+
+  it('installs sandbox deps on linux when missing', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    exec.exec.mockImplementation(async (cmd: string) => {
+      if (cmd === 'which') {
+        return 1 // not found
+      }
+      return 0
+    })
+
+    await run()
+
+    expect(exec.exec).toHaveBeenCalledWith(
+      'which',
+      ['bwrap'],
+      expect.objectContaining({ silent: true, ignoreReturnCode: true })
+    )
+    expect(exec.exec).toHaveBeenCalledWith(
+      'which',
+      ['socat'],
+      expect.objectContaining({ silent: true, ignoreReturnCode: true })
+    )
+    expect(exec.exec).toHaveBeenCalledWith('sudo', [
+      'apt-get',
+      'install',
+      '-y',
+      'bubblewrap',
+      'socat'
+    ])
+    expect(core.startGroup).toHaveBeenCalledWith(
+      'Installing sandbox dependencies: bubblewrap, socat'
+    )
+  })
+
+  it('skips sandbox deps on linux when already installed', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+
+    await run()
+
+    expect(exec.exec).toHaveBeenCalledWith(
+      'which',
+      ['bwrap'],
+      expect.objectContaining({ silent: true, ignoreReturnCode: true })
+    )
+    expect(exec.exec).toHaveBeenCalledWith(
+      'which',
+      ['socat'],
+      expect.objectContaining({ silent: true, ignoreReturnCode: true })
+    )
+    expect(exec.exec).not.toHaveBeenCalledWith('sudo', expect.anything())
+  })
+
+  it('skips sandbox deps on non-linux', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' })
+
+    await run()
+
+    expect(exec.exec).not.toHaveBeenCalledWith(
+      'which',
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
+  it('warns but continues when sandbox dep install fails', async () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' })
+    exec.exec.mockImplementation(async (cmd: string) => {
+      if (cmd === 'which') {
+        return 1
+      }
+      if (cmd === 'sudo') {
+        throw new Error('apt-get failed')
+      }
+      return 0
+    })
+
+    await run()
+
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to install sandbox dependencies')
+    )
+    // Action should still run tusk
+    expect(exec.exec).toHaveBeenCalledWith(
+      'bash',
+      expect.arrayContaining(['-eo', 'pipefail', '-c']),
+      expect.objectContaining({ cwd: './backend' })
     )
   })
 })

@@ -121,6 +121,9 @@ function issueCommand(command, properties, message) {
     const cmd = new Command(command, properties, message);
     process.stdout.write(cmd.toString() + os.EOL);
 }
+function issue(name, message = '') {
+    issueCommand(name, {}, message);
+}
 const CMD_STRING = '::';
 class Command {
     constructor(command, properties, message) {
@@ -29659,6 +29662,22 @@ function warning(message, properties = {}) {
  */
 function info(message) {
     process.stdout.write(message + os.EOL);
+}
+/**
+ * Begin an output group.
+ *
+ * Output until the next `groupEnd` will be foldable in this group
+ *
+ * @param name The name of the output group
+ */
+function startGroup(name) {
+    issue('group', name);
+}
+/**
+ * End an output group.
+ */
+function endGroup() {
+    issue('endgroup');
 }
 
 /**
@@ -74517,27 +74536,39 @@ function buildExecEnvironment(apiKey) {
     return env;
 }
 async function installFromReleaseScript(workingDirectory, installScriptUrl, cliVersion) {
-    const installCommand = cliVersion === ''
-        ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
-        : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`;
-    await exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
-        cwd: workingDirectory
-    });
+    startGroup('Install Tusk CLI (release)');
+    try {
+        const installCommand = cliVersion === ''
+            ? `curl -fsSL ${shellQuote(installScriptUrl)} | sh`
+            : `curl -fsSL ${shellQuote(installScriptUrl)} | sh -s -- ${shellQuote(cliVersion)}`;
+        await exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+            cwd: workingDirectory
+        });
+    }
+    finally {
+        endGroup();
+    }
 }
 async function installFromSource(workingDirectory, ref) {
-    await exec('go', ['version'], { cwd: workingDirectory });
-    const repoUrl = `https://github.com/${CLI_SOURCE_REPOSITORY}.git`;
-    const installCommand = `tmp_dir="$(mktemp -d)" && ` +
-        `trap 'rm -rf "$tmp_dir"' EXIT && ` +
-        `git clone --depth 1 --branch ${shellQuote(ref)} ${shellQuote(repoUrl)} "$tmp_dir/repo" && ` +
-        `cd "$tmp_dir/repo" && ` +
-        `go build -o tusk . && ` +
-        `install_dir="/usr/local/bin" && ` +
-        `if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && ` +
-        `mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`;
-    await exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
-        cwd: workingDirectory
-    });
+    startGroup('Install Tusk CLI (source)');
+    try {
+        await exec('go', ['version'], { cwd: workingDirectory });
+        const repoUrl = `https://github.com/${CLI_SOURCE_REPOSITORY}.git`;
+        const installCommand = `tmp_dir="$(mktemp -d)" && ` +
+            `trap 'rm -rf "$tmp_dir"' EXIT && ` +
+            `git clone --depth 1 --branch ${shellQuote(ref)} ${shellQuote(repoUrl)} "$tmp_dir/repo" && ` +
+            `cd "$tmp_dir/repo" && ` +
+            `go build -o tusk . && ` +
+            `install_dir="/usr/local/bin" && ` +
+            `if [ ! -w "$install_dir" ]; then install_dir="$HOME/.local/bin"; mkdir -p "$install_dir"; fi && ` +
+            `mv tusk "$install_dir/" && chmod +x "$install_dir/tusk"`;
+        await exec('bash', ['-eo', 'pipefail', '-c', installCommand], {
+            cwd: workingDirectory
+        });
+    }
+    finally {
+        endGroup();
+    }
 }
 async function installSandboxDeps() {
     if (process.platform !== 'linux') {
@@ -74556,7 +74587,7 @@ async function installSandboxDeps() {
     if (missing.length === 0) {
         return;
     }
-    info(`Installing sandbox dependencies: ${missing.join(', ')}`);
+    startGroup(`Installing sandbox dependencies: ${missing.join(', ')}`);
     try {
         await exec('sudo', ['apt-get', 'install', '-y', ...missing]);
     }
@@ -74564,6 +74595,9 @@ async function installSandboxDeps() {
         if (error instanceof Error) {
             warning(`Failed to install sandbox dependencies: ${error.message}. Sandboxing may be unavailable.`);
         }
+    }
+    finally {
+        endGroup();
     }
 }
 /**
