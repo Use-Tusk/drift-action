@@ -136,6 +136,38 @@ async function installFromSource(
   })
 }
 
+async function installSandboxDeps(): Promise<void> {
+  if (process.platform !== 'linux') {
+    return
+  }
+
+  const missing: string[] = []
+  for (const bin of ['bwrap', 'socat']) {
+    const exitCode = await exec.exec('which', [bin], {
+      silent: true,
+      ignoreReturnCode: true
+    })
+    if (exitCode !== 0) {
+      missing.push(bin === 'bwrap' ? 'bubblewrap' : bin)
+    }
+  }
+
+  if (missing.length === 0) {
+    return
+  }
+
+  core.info(`Installing sandbox dependencies: ${missing.join(', ')}`)
+  try {
+    await exec.exec('sudo', ['apt-get', 'install', '-y', ...missing])
+  } catch (error) {
+    if (error instanceof Error) {
+      core.warning(
+        `Failed to install sandbox dependencies: ${error.message}. Sandboxing may be unavailable.`
+      )
+    }
+  }
+}
+
 /**
  * The main function for the action.
  *
@@ -188,15 +220,12 @@ export async function run(): Promise<void> {
     core.addPath(join(homedir(), '.local', 'bin'))
     core.addPath('/usr/local/bin')
 
-    if (cliSource === 'release') {
-      await installFromReleaseScript(
-        workingDirectory,
-        installScriptUrl,
-        cliVersion
-      )
-    } else {
-      await installFromSource(workingDirectory, cliSourceRef)
-    }
+    const cliInstall =
+      cliSource === 'release'
+        ? installFromReleaseScript(workingDirectory, installScriptUrl, cliVersion)
+        : installFromSource(workingDirectory, cliSourceRef)
+
+    await Promise.all([cliInstall, installSandboxDeps()])
 
     try {
       const version = await readTuskVersion()
