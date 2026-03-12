@@ -74634,10 +74634,13 @@ async function run() {
         setOutput('cache-hit', restoredCacheKey === cacheKey ? 'true' : 'false');
         addPath(join(homedir(), '.local', 'bin'));
         addPath('/usr/local/bin');
-        const cliInstall = cliSource === 'release'
-            ? installFromReleaseScript(workingDirectory, installScriptUrl, cliVersion)
-            : installFromSource(workingDirectory, cliSourceRef);
-        await Promise.all([cliInstall, installSandboxDeps()]);
+        if (cliSource === 'release') {
+            await installFromReleaseScript(workingDirectory, installScriptUrl, cliVersion);
+        }
+        else {
+            await installFromSource(workingDirectory, cliSourceRef);
+        }
+        await installSandboxDeps();
         try {
             const version = await readTuskVersion();
             if (version !== '') {

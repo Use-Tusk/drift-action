@@ -232,16 +232,17 @@ export async function run(): Promise<void> {
     core.addPath(join(homedir(), '.local', 'bin'))
     core.addPath('/usr/local/bin')
 
-    const cliInstall =
-      cliSource === 'release'
-        ? installFromReleaseScript(
-            workingDirectory,
-            installScriptUrl,
-            cliVersion
-          )
-        : installFromSource(workingDirectory, cliSourceRef)
+    if (cliSource === 'release') {
+      await installFromReleaseScript(
+        workingDirectory,
+        installScriptUrl,
+        cliVersion
+      )
+    } else {
+      await installFromSource(workingDirectory, cliSourceRef)
+    }
 
-    await Promise.all([cliInstall, installSandboxDeps()])
+    await installSandboxDeps()
 
     try {
       const version = await readTuskVersion()
