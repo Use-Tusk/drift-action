@@ -81,7 +81,7 @@ if [[ "$current_branch" != "$DEFAULT_BRANCH" ]]; then
 fi
 
 info "Fetching latest tags from ${GIT_REMOTE}/${DEFAULT_BRANCH}..."
-git fetch "$GIT_REMOTE" "$DEFAULT_BRANCH" --tags
+git fetch "$GIT_REMOTE" "$DEFAULT_BRANCH" --tags --force
 
 local_commit="$(git rev-parse HEAD)"
 remote_commit="$(git rev-parse "${GIT_REMOTE}/${DEFAULT_BRANCH}")"
