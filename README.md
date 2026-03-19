@@ -30,6 +30,9 @@ or [docs](https://docs.usetusk.ai/api-tests/overview).
   dogfooding).
 - Restores and saves Tusk cache data (optional).
 - Runs a configurable Tusk command (defaults to CI cloud validation mode).
+- Ensures Linux sandbox prerequisites for strict replay runs, including
+  automatic repair on GitHub-hosted runners when `bubblewrap` user-namespace
+  preflight fails.
 - Optionally injects `TUSK_API_KEY` from an input.
 
 ## Quick usage
@@ -174,6 +177,14 @@ jobs:
 - If you run trace tests in Tusk Drift Cloud, provide `api-key` (or set
   `TUSK_API_KEY` in the job environment). Without it, authenticated cloud API
   calls will fail.
+- On Linux, the action verifies that `bubblewrap` can create user namespaces for
+  [Fence](https://github.com/Use-Tusk/fence) sandboxing. On GitHub-hosted
+  runners it will try to repair common CI prerequisites (such as `uidmap`,
+  `/etc/subuid` and `/etc/subgid`, and the `bwrap` setuid bit) when that
+  preflight fails. On self-hosted runners, it warns instead of mutating system
+  sandbox settings automatically. Docker's
+  [`userns-remap` doc](https://docs.docker.com/engine/security/userns-remap/)
+  explains how this works.
 - If you are installing the CLI from source (`cli-source: source`), it will use
   whatever Go version is already on the runner's `PATH` at runtime. For
   deterministic builds (or if you hit Go-version issues), pin Go before running
