@@ -11,8 +11,16 @@ const DEFAULT_RUN_COMMAND =
 const DEFAULT_CACHE_PATH = '~/.cache/tusk'
 const CLI_SOURCE_REPOSITORY = 'Use-Tusk/tusk-drift-cli'
 const DEFAULT_CLI_SOURCE_REF = 'main'
+const SUBID_BLOCK_SIZE = 65536
+const SUBID_MIN_START = 100000
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'y', 'on'])
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'n', 'off'])
+
+type CommandResult = {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
 
 function parseBooleanInput(name: string, defaultValue: boolean): boolean {
   const raw = core.getInput(name).trim()
@@ -146,6 +154,139 @@ async function installFromSource(
   }
 }
 
+async function execCapture(
+  command: string,
+  args: string[]
+): Promise<CommandResult> {
+  let stdout = ''
+  let stderr = ''
+  const exitCode = await exec.exec(command, args, {
+    silent: true,
+    ignoreReturnCode: true,
+    listeners: {
+      stdout: (data: Buffer) => {
+        stdout += data.toString()
+      },
+      stderr: (data: Buffer) => {
+        stderr += data.toString()
+      }
+    }
+  })
+
+  return {
+    exitCode,
+    stdout: stdout.trim(),
+    stderr: stderr.trim()
+  }
+}
+
+async function resolveCommandPath(command: string): Promise<string | null> {
+  const result = await execCapture('which', [command])
+  if (result.exitCode !== 0 || result.stdout === '') {
+    return null
+  }
+
+  return result.stdout.split(/\r?\n/, 1)[0] ?? null
+}
+
+function summarizeFailure(result: CommandResult): string {
+  const detail = (result.stderr || result.stdout).replace(/\s+/g, ' ').trim()
+  if (detail !== '') {
+    return detail
+  }
+
+  return `exit code ${result.exitCode}`
+}
+
+function isHostedLinuxRunner(): boolean {
+  if (process.platform !== 'linux') {
+    return false
+  }
+
+  // GitHub-hosted Linux images expose ImageOS; prefer that signal to avoid
+  // mutating arbitrary self-hosted runners when sandbox bootstrap fails.
+  return (
+    process.env['RUNNER_ENVIRONMENT'] === 'github-hosted' ||
+    process.env['ImageOS'] !== undefined
+  )
+}
+
+async function runLinuxSandboxPreflight(): Promise<CommandResult> {
+  return execCapture('bwrap', [
+    '--ro-bind',
+    '/',
+    '/',
+    '--unshare-user',
+    '--uid',
+    '0',
+    '--gid',
+    '0',
+    '--',
+    '/bin/true'
+  ])
+}
+
+async function ensureUidmapInstalled(): Promise<void> {
+  const newuidmapPath = await resolveCommandPath('newuidmap')
+  const newgidmapPath = await resolveCommandPath('newgidmap')
+  if (newuidmapPath !== null && newgidmapPath !== null) {
+    return
+  }
+
+  await exec.exec('sudo', ['apt-get', 'install', '-y', 'uidmap'])
+}
+
+async function ensureSubidEntry(filePath: string): Promise<void> {
+  const script = `
+set -euo pipefail
+user_name="$(whoami)"
+block_size=${SUBID_BLOCK_SIZE}
+min_start=${SUBID_MIN_START}
+
+sudo touch ${shellQuote(filePath)}
+if sudo grep -q "^$user_name:" ${shellQuote(filePath)}; then
+  exit 0
+fi
+
+start="$(
+  sudo awk -F: -v block_size="$block_size" -v min_start="$min_start" '
+    BEGIN { max = min_start - 1 }
+    NF >= 3 {
+      start = $2 + 0
+      count = $3 + 0
+      end = start + count - 1
+      if (end > max) max = end
+    }
+    END {
+      next = max + 1
+      if (next < min_start) next = min_start
+      rem = next % block_size
+      if (rem != 0) next += block_size - rem
+      print next
+    }
+  ' ${shellQuote(filePath)}
+)"
+
+printf '%s\\n' "$user_name:$start:$block_size" | sudo tee -a ${shellQuote(filePath)} >/dev/null
+`.trim()
+
+  await exec.exec('bash', ['-eo', 'pipefail', '-c', script])
+}
+
+async function ensureBwrapSetuid(bwrapPath: string): Promise<void> {
+  const status = await execCapture('bash', [
+    '-eo',
+    'pipefail',
+    '-c',
+    `test -u ${shellQuote(bwrapPath)}`
+  ])
+  if (status.exitCode === 0) {
+    return
+  }
+
+  await exec.exec('sudo', ['chmod', 'u+s', bwrapPath])
+}
+
 async function installSandboxDeps(): Promise<void> {
   if (process.platform !== 'linux') {
     return
@@ -153,31 +294,80 @@ async function installSandboxDeps(): Promise<void> {
 
   const missing: string[] = []
   for (const bin of ['bwrap', 'socat']) {
-    const exitCode = await exec.exec('which', [bin], {
-      silent: true,
-      ignoreReturnCode: true
-    })
-    if (exitCode !== 0) {
+    if ((await resolveCommandPath(bin)) === null) {
       missing.push(bin === 'bwrap' ? 'bubblewrap' : bin)
     }
   }
 
-  if (missing.length === 0) {
+  if (missing.length > 0) {
+    core.startGroup(`Installing sandbox dependencies: ${missing.join(', ')}`)
+    try {
+      await exec.exec('sudo', ['apt-get', 'install', '-y', ...missing])
+    } catch (error) {
+      if (error instanceof Error) {
+        core.warning(
+          `Failed to install sandbox dependencies: ${error.message}. Sandboxing may be unavailable.`
+        )
+      }
+    } finally {
+      core.endGroup()
+    }
+  }
+
+  const bwrapPath = await resolveCommandPath('bwrap')
+  if (bwrapPath === null) {
     return
   }
 
-  core.startGroup(`Installing sandbox dependencies: ${missing.join(', ')}`)
+  const preflight = await runLinuxSandboxPreflight()
+  if (preflight.exitCode === 0) {
+    return
+  }
+
+  const preflightSummary = summarizeFailure(preflight)
+  core.info(`Linux sandbox preflight failed: ${preflightSummary}`)
+
+  if (!isHostedLinuxRunner()) {
+    core.warning(
+      `Linux sandbox preflight failed: ${preflightSummary}. This action will not modify this runner automatically. To enable strict replay sandboxing, install uidmap, configure /etc/subuid and /etc/subgid, and ensure bwrap is setuid.`
+    )
+    return
+  }
+
+  const sudoPath = await resolveCommandPath('sudo')
+  if (sudoPath === null) {
+    core.warning(
+      `Linux sandbox preflight failed: ${preflightSummary}. sudo is unavailable, so the action cannot repair sandbox support automatically.`
+    )
+    return
+  }
+
+  core.startGroup('Repair Linux sandbox support')
   try {
-    await exec.exec('sudo', ['apt-get', 'install', '-y', ...missing])
+    await ensureUidmapInstalled()
+    await ensureSubidEntry('/etc/subuid')
+    await ensureSubidEntry('/etc/subgid')
+    await ensureBwrapSetuid(bwrapPath)
   } catch (error) {
     if (error instanceof Error) {
       core.warning(
-        `Failed to install sandbox dependencies: ${error.message}. Sandboxing may be unavailable.`
+        `Failed to repair Linux sandbox support: ${error.message}. Strict replay sandboxing may be unavailable.`
       )
     }
+    return
   } finally {
     core.endGroup()
   }
+
+  const repairedPreflight = await runLinuxSandboxPreflight()
+  if (repairedPreflight.exitCode !== 0) {
+    core.warning(
+      `Linux sandbox preflight still failing after repair: ${summarizeFailure(repairedPreflight)}. Strict replay sandboxing may be unavailable.`
+    )
+    return
+  }
+
+  core.info('Linux sandbox preflight passed after repair')
 }
 
 /**
