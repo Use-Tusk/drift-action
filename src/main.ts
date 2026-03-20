@@ -9,7 +9,7 @@ const DEFAULT_INSTALL_SCRIPT_URL = 'https://cli.usetusk.ai/install.sh'
 const DEFAULT_RUN_COMMAND =
   'tusk run -c -p --ci --validate-suite-if-default-branch'
 const DEFAULT_CACHE_PATH = '~/.cache/tusk'
-const CLI_SOURCE_REPOSITORY = 'Use-Tusk/tusk-drift-cli'
+const CLI_SOURCE_REPOSITORY = 'Use-Tusk/tusk-cli'
 const DEFAULT_CLI_SOURCE_REF = 'main'
 const SUBID_BLOCK_SIZE = 65536
 const SUBID_MIN_START = 100000

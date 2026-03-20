@@ -24,7 +24,7 @@ or [docs](https://docs.usetusk.ai/api-tests/overview).
 
 ## What this action does
 
-- Installs the [Tusk CLI](https://github.com/Use-Tusk/tusk-drift-cli) (`tusk`)
+- Installs the [Tusk CLI](https://github.com/Use-Tusk/tusk-cli) (`tusk`)
   with `https://cli.usetusk.ai/install.sh`.
 - Can optionally build the CLI from a GitHub repo/ref (for unreleased
   dogfooding).
