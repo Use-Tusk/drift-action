@@ -66,13 +66,13 @@ Use `.env` for local-action input/environment values.
 
 ## CLI coupling
 
-This action is intentionally coupled to `Use-Tusk/tusk-drift-cli`. When the CLI
+This action is intentionally coupled to `Use-Tusk/tusk-cli`. When the CLI
 changes, verify these contracts still hold:
 
 - Release installer contract: `install.sh` still supports both `curl ... | sh`
   and `curl ... | sh -s -- <version>`.
 - Source build contract: `cli-source: source` can still clone
-  `Use-Tusk/tusk-drift-cli` and build from repo root with `go build -o tusk .`.
+  `Use-Tusk/tusk-cli` and build from repo root with `go build -o tusk .`.
 - Binary contract: resulting binary name remains `tusk` and `tusk --version`
   still works.
 - Run command contract: default command in this action remains valid with

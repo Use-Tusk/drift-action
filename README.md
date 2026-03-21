@@ -24,8 +24,8 @@ or [docs](https://docs.usetusk.ai/api-tests/overview).
 
 ## What this action does
 
-- Installs the [Tusk CLI](https://github.com/Use-Tusk/tusk-drift-cli) (`tusk`)
-  with `https://cli.usetusk.ai/install.sh`.
+- Installs the [Tusk CLI](https://github.com/Use-Tusk/tusk-cli) (`tusk`) with
+  `https://cli.usetusk.ai/install.sh`.
 - Can optionally build the CLI from a GitHub repo/ref (for unreleased
   dogfooding).
 - Restores and saves Tusk cache data (optional).
@@ -193,7 +193,7 @@ jobs:
   ```yaml
   - uses: actions/setup-go@v5
     with:
-      go-version: '1.25' # or the current Go version required by tusk-drift-cli
+      go-version: '1.25' # or the current Go version required by tusk-cli
   ```
 
 ## Contact
