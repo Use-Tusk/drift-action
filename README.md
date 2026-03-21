@@ -193,7 +193,7 @@ jobs:
   ```yaml
   - uses: actions/setup-go@v5
     with:
-      go-version: '1.25' # or the current Go version required by tusk-drift-cli
+      go-version: '1.25' # or the current Go version required by tusk-cli
   ```
 
 ## Contact
