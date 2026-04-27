@@ -39,7 +39,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/cache": "^6.0.0",
-    "@actions/core": "^3.0.0",
+    "@actions/core": "^3.0.1",
     "@actions/exec": "^3.0.0"
   },
   "devDependencies": {
@@ -70,6 +70,6 @@
     "typescript": "^5.9.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.60.1"
+    "@rollup/rollup-linux-x64-gnu": "^4.60.2"
   }
 }
